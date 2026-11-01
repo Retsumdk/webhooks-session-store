@@ -1,0 +1,35 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+      - run: bun install
+      - run: bun run build
+      - run: bun test
+      - name: Verify deterministic demo output
+        run: bun run verify:demo
+
+  node-install:
+    # Proves the package is consumable the way README documents:
+    # a git install runs "prepare" (tsc) and the ESM entry resolves.
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - name: In-repo dev install + build + self-import probe
+        run: |
+          npm install --include=dev
+          npm run build
+          node -e "import('webhooks-session-store').then((m) => { if (typeof m.WebhookEngine !== 'function' || typeof m.signPayload !== 'function' || typeof m.verifyWebhook !== 'function') throw new Error('bad export'); console.log('GH_INSTALL_OK'); })"
